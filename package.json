@@ -1,0 +1,60 @@
+{
+  "name": "discord-chat",
+  "displayName": "Discord Chat",
+  "publisher": "Saino23",
+  "version": "0.0.1",
+  "description": "A compact, Discord client inside VS Code.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Saino20/discord-chat.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Saino20/discord-chat/issues"
+  },
+  "homepage": "https://github.com/Saino20/discord-chat#readme",
+  "icon": "media/icon.png",
+  "main": "./out/extension.js",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "discordChatContainer",
+          "title": "Discord Chat",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "discordChatContainer": [
+        {
+          "type": "webview",
+          "id": "discordChat.sidebarView",
+          "name": "Discord Chat",
+          "icon": "media/icon.png"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "compile": "tsc -p ./",
+    "build": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "watch": "tsc -watch -p ./"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.x",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.3.0"
+  }
+}
