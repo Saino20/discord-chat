@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; media-src https: blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+  <style>
+    :root {
+      --bg-primary: #313338;
+      --bg-secondary: #2b2d31;
+      --bg-tertiary: #1e1f22;
+      --bg-floating: #232428;
+      --accent: #5865f2;
+      --accent-hover: #4752c4;
+      --text-normal: #dbdee1;
+      --text-muted: #949ba4;
+      --header-primary: #f2f3f5;
+      --green: #23a55a;
+      --danger: #f23f43;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg-primary); color: var(--text-normal); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    .view-panel { display: none; height: 100vh; width: 100%; flex-direction: column; }
+    .active-view { display: flex !important; }
+
+    /* Auth */
+    .center-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; text-align: center; gap: 12px; }
+    .btn-primary { padding: 7px 12px; background: var(--accent); color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 11px; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger) !important; }
+    .text-input { width: 100%; max-width: 260px; padding: 8px 10px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 6px; color: #fff; outline: none; font-size: 12px; }
+
+    /* Top Bar */
+    .mobile-header { background: var(--bg-tertiary); padding: 6px 8px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+    .header-top { display: flex; align-items: center; justify-content: space-between; }
+    .bot-status { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--header-primary); }
+    .ping-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+    .header-actions { display: flex; gap: 4px; }
+    .icon-nav-btn { background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-muted); padding: 3px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+    .icon-nav-btn:hover, .icon-nav-btn.active { color: #fff; background: var(--accent); }
+
+    .selector-grid { display: flex; gap: 4px; width: 100%; }
+    .dropdown { flex: 1; min-width: 0; background: var(--bg-secondary); color: var(--text-normal); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; font-size: 11px; outline: none; }
+    .search-input { width: 100%; background: var(--bg-secondary); color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 11px; outline: none; }
+
+    /* Stream */
+    .message-stream { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .message-row { display: flex; gap: 8px; padding: 6px 8px; border-radius: 4px; position: relative; }
+    .message-row:hover { background: rgba(0, 0, 0, 0.2); }
+    .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex-shrink: 0; font-size: 11px; }
+    .avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .message-body { flex: 1; min-width: 0; }
+    .meta { display: flex; align-items: baseline; gap: 5px; margin-bottom: 2px; }
+    .author { font-weight: 600; font-size: 12px; color: var(--header-primary); }
+    .bot-pill { font-size: 8px; background: var(--accent); color: #fff; padding: 1px 3px; border-radius: 2px; font-weight: 700; }
+    .time { font-size: 9px; color: var(--text-muted); }
+    .content { font-size: 12px; line-height: 1.35; word-break: break-word; }
+
+    .reply-preview-pill { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; border-left: 2px solid var(--accent); padding-left: 4px; }
+
+    /* Message Actions */
+    .msg-actions { position: absolute; right: 4px; top: 2px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 4px; display: none; padding: 2px 4px; gap: 3px; z-index: 5; }
+    .message-row:hover .msg-actions { display: flex; }
+    .action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 3px; }
+    .action-btn:hover { color: #fff; background: rgba(255,255,255,0.15); }
+
+    /* Reactions */
+    .reaction-list { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+    .reaction-badge { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 10px; cursor: pointer; display: flex; align-items: center; gap: 2px; }
+    .reaction-badge:hover { border-color: var(--accent); }
+
+    .emoji-popover { display: none; position: absolute; right: 4px; top: 26px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 6px; padding: 4px; gap: 4px; z-index: 30; box-shadow: 0 4px 10px rgba(0,0,0,0.6); }
+    .emoji-popover.active { display: flex; }
+    .emoji-btn { background: none; border: none; font-size: 14px; cursor: pointer; padding: 2px 4px; border-radius: 3px; }
+    .emoji-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* Code Cards */
+    .discord-file-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; margin-top: 6px; max-width: 100%; position: relative; }
+    .file-preview-content { padding: 6px 8px; background: #18191c; font-family: Consolas, Monaco, "Courier New", monospace; font-size: 11px; line-height: 1.35; color: #dbdee1; max-height: 38px; overflow: hidden; white-space: pre-wrap; word-break: break-all; border-bottom: 1px solid var(--border); transition: max-height 0.2s ease; }
+    .file-preview-content.expanded { max-height: 220px; overflow-y: auto; }
+
+    .file-card-footer { padding: 4px 6px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-tertiary); border-radius: 0 0 6px 6px; }
+    .file-card-left { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+    .expand-toggle-btn { width: 22px; height: 22px; border-radius: 4px; background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-normal); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 10px; flex-shrink: 0; }
+    .expand-toggle-btn:hover { background: rgba(255,255,255,0.1); }
+    .file-meta-text { display: flex; flex-direction: column; min-width: 0; }
+    .file-title-name { font-size: 11px; font-weight: 600; color: var(--header-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-subtitle-size { font-size: 9px; color: var(--text-muted); }
+
+    .file-card-actions { display: flex; align-items: center; gap: 3px; position: relative; }
+    .card-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 3px 5px; border-radius: 4px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+    .card-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+    /* Dropdown Menus */
+    .more-menu-dropdown { display: none; position: absolute; right: 0; bottom: 28px; background: var(--bg-floating); border: 1px solid var(--border); border-radius: 5px; padding: 4px; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.6); min-width: 140px; flex-direction: column; gap: 2px; }
+    .more-menu-dropdown.active { display: flex; }
+    .more-menu-item { background: none; border: none; color: var(--text-normal); text-align: left; padding: 5px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .more-menu-item:hover { background: var(--accent); color: #fff; }
+
+    /* Media */
+    .media-box { margin-top: 4px; border-radius: 4px; overflow: hidden; background: var(--bg-secondary); border: 1px solid var(--border); max-width: 100%; }
+    .media-box img { width: 100%; max-height: 160px; object-fit: cover; display: block; cursor: zoom-in; }
+    .media-box video { width: 100%; max-height: 220px; display: block; background: #000; }
+    .media-box audio { width: 100%; margin-top: 2px; }
+    .media-bar { padding: 4px 6px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; background: var(--bg-tertiary); }
+    .dl-btn { background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-normal); padding: 2px 6px; font-size: 10px; border-radius: 3px; cursor: pointer; }
+    .dl-btn:hover { background: var(--accent); color: #fff; }
+
+    /* Input Dock */
+    .reply-banner { display: none; background: var(--bg-secondary); padding: 4px 8px; font-size: 10px; border-top: 1px solid var(--border); justify-content: space-between; align-items: center; color: var(--text-muted); }
+    .reply-banner.active { display: flex; }
+    .attachment-banner { display: none; background: var(--bg-secondary); padding: 5px 8px; font-size: 11px; border-top: 1px solid var(--border); justify-content: space-between; align-items: center; color: var(--header-primary); font-weight: 500; }
+    .attachment-banner.active { display: flex; }
+    .attach-info { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .spinner { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .input-dock { padding: 6px 8px; background: var(--bg-tertiary); border-top: 1px solid var(--border); flex-shrink: 0; }
+    .input-box { display: flex; align-items: center; background: var(--bg-secondary); border-radius: 6px; padding: 0 6px; gap: 4px; border: 1px solid var(--border); }
+    .chat-field { flex: 1; height: 32px; background: transparent; border: none; outline: none; color: #fff; font-size: 12px; }
+    .icon-btn { background: none; border: none; color: var(--text-muted); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .icon-btn:hover { color: #fff; }
+
+    /* Modals */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; padding: 12px; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--bg-secondary); padding: 14px; border-radius: 6px; width: 100%; max-width: 260px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+    .modal-header { font-size: 12px; font-weight: 700; color: var(--header-primary); display: flex; justify-content: space-between; align-items: center; }
+    .close-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="modal" onclick="this.classList.remove('active')">
+    <img id="lightbox-img" src="" style="max-width:95vw;max-height:90vh;border-radius:4px;" alt="preview" />
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>⚙️ Discord Settings</span>
+        <button class="close-btn" onclick="toggleSettings(false)">✕</button>
+      </div>
+      <button class="btn-primary" onclick="forceSync()">Force Refresh</button>
+      <button class="btn-primary btn-danger" onclick="logout()">Log Out & Clear Token</button>
+    </div>
+  </div>
+
+  <!-- AUTH VIEW -->
+  <div id="view-auth" class="view-panel active-view">
+    <div class="center-container">
+      <h3>💬 Discord Chat</h3>
+      <p style="color: var(--text-muted); font-size: 11px;">Connect using your Bot Token</p>
+      <input type="password" id="token-input" class="text-input" placeholder="Paste Bot Token..." />
+      <button class="btn-primary" onclick="submitToken()">Connect</button>
+      <div id="error-msg" style="color: var(--danger); font-size: 11px;"></div>
+    </div>
+  </div>
+
+  <!-- CHAT VIEW -->
+  <div id="view-chat" class="view-panel">
+    <div class="mobile-header">
+      <div class="header-top">
+        <div class="bot-status">
+          <span class="ping-dot"></span>
+          <span id="bot-name-label">Connected</span>
+        </div>
+        <div class="header-actions">
+          <button id="mode-btn" class="icon-nav-btn" onclick="toggleTargetMode()" title="Switch Channels/Members">👥 Peoples</button>
+          <button class="icon-nav-btn" onclick="toggleSettings(true)" title="Settings">⚙️</button>
+        </div>
+      </div>
+
+      <div class="selector-grid">
+        <select id="server-select" class="dropdown" onchange="onServerChange(this.value)"></select>
+        <select id="target-select" class="dropdown" onchange="onTargetChange(this.value)"></select>
+      </div>
+
+      <input type="text" id="search-bar" class="search-input" placeholder="🔍 Search channels or peoples..." oninput="filterTargets(this.value)" />
+    </div>
+
+    <div class="message-stream" id="message-stream"></div>
+
+    <div id="reply-banner" class="reply-banner">
+      <span id="replying-text">Replying...</span>
+      <button class="close-btn" onclick="cancelReply()">✕</button>
+    </div>
+    
+    <div id="attachment-banner" class="attachment-banner">
+      <div class="attach-info">
+        <div id="attach-spinner" class="spinner" style="display:none;"></div>
+        <span id="attach-icon">📎</span>
+        <span id="attach-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">file.png</span>
+      </div>
+      <button class="close-btn" onclick="cancelAttachment()" title="Remove file">✕</button>
+    </div>
+
+    <div class="input-dock">
+      <div class="input-box">
+        <button id="file-btn" class="icon-btn" title="Attach File" onclick="uploadFile()">📎</button>
+        <button class="icon-btn" title="Send Active Code Tab / Terminal Output" onclick="sendQuickCode()" style="color: #e5a50a;">⚡</button>
+        <input type="text" id="msg-input" class="chat-field" placeholder="Send message..." onkeydown="if(event.key==='Enter') sendMsg()" />
+        <button id="send-btn" class="icon-btn" title="Send" onclick="sendMsg()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+    let serversData = [];
+    let currentServerId = null;
+    let currentTargetId = null;
+    let isMemberMode = false;
+    let activeReplyId = null;
+    let activeEditingId = null;
+    let pendingAttachmentPath = null;
+    let isSending = false;
+    let searchQuery = '';
+
+    const messageStore = {};
+
+    function submitToken() {
+      const token = document.getElementById('token-input').value.trim();
+      if (token) {
+        document.getElementById('error-msg').innerText = 'Connecting...';
+        vscode.postMessage({ command: 'SAVE_TOKEN', token: token });
+      }
+    }
+
+    function toggleSettings(open) {
+      document.getElementById('settings-modal').classList.toggle('active', open);
+    }
+
+    function logout() {
+      toggleSettings(false);
+      vscode.postMessage({ command: 'RESET_TOKEN' });
+    }
+
+    function forceSync() {
+      toggleSettings(false);
+      vscode.postMessage({ command: 'REFRESH_DATA' });
+    }
+
+    function toggleTargetMode() {
+      isMemberMode = !isMemberMode;
+      const modeBtn = document.getElementById('mode-btn');
+      modeBtn.innerText = isMemberMode ? '# Channels' : '👥 Peoples';
+      modeBtn.classList.toggle('active', isMemberMode);
+      renderTargetOptions(currentServerId);
+    }
+
+    function filterTargets(query) {
+      searchQuery = query.toLowerCase().trim();
+      renderTargetOptions(currentServerId);
+    }
+
+    function updateDropdowns(servers, activeServerId, activeChannelId) {
+      serversData = servers || [];
+      const sSelect = document.getElementById('server-select');
+      const prevServer = sSelect.value || activeServerId;
+
+      sSelect.innerHTML = '';
+      if (!servers || servers.length === 0) {
+        sSelect.innerHTML = '<option>No Servers Found</option>';
+        document.getElementById('target-select').innerHTML = '<option>None</option>';
+        return;
+      }
+
+      servers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.innerText = '🌐 ' + s.name;
+        if (s.id === prevServer) opt.selected = true;
+        sSelect.appendChild(opt);
+      });
+
+      currentServerId = sSelect.value || servers[0].id;
+      renderTargetOptions(currentServerId, activeChannelId);
+    }
+
+    function renderTargetOptions(serverId, preferredTargetId) {
+      const tSelect = document.getElementById('target-select');
+      const server = serversData.find(s => s.id === serverId);
+      tSelect.innerHTML = '';
+
+      if (!server) {
+        tSelect.innerHTML = '<option>No Targets</option>';
+        return;
+      }
+
+      const list = isMemberMode ? (server.members || []) : (server.channels || []);
+      const filtered = list.filter(item => item.name.toLowerCase().includes(searchQuery));
+
+      if (filtered.length === 0) {
+        tSelect.innerHTML = isMemberMode ? '<option>No Peoples Found</option>' : '<option>No Channels Found</option>';
+        return;
+      }
+
+      filtered.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.innerText = (isMemberMode ? '@ ' : '# ') + item.name;
+        if (item.id === preferredTargetId) opt.selected = true;
+        tSelect.appendChild(opt);
+      });
+
+      const selected = tSelect.value || filtered[0].id;
+      if (currentTargetId !== selected) {
+        currentTargetId = selected;
+        vscode.postMessage({
+          command: isMemberMode ? 'SWITCH_DM' : 'SWITCH_CHANNEL',
+          id: selected
+        });
+      }
+    }
+
+    function onServerChange(serverId) {
+      currentServerId = serverId;
+      renderTargetOptions(serverId, null);
+    }
+
+    function onTargetChange(targetId) {
+      currentTargetId = targetId;
+      vscode.postMessage({
+        command: isMemberMode ? 'SWITCH_DM' : 'SWITCH_CHANNEL',
+        id: targetId
+      });
+    }
+
+    function sendMsg() {
+      if (isSending) return;
+      const input = document.getElementById('msg-input');
+      const text = input.value.trim();
+      
+      if (!text && !pendingAttachmentPath) return;
+
+      if (activeEditingId) {
+        const stored = messageStore[activeEditingId];
+        vscode.postMessage({
+          command: 'EDIT_MESSAGE',
+          messageId: String(activeEditingId),
+          channelId: stored ? stored.channelId : currentTargetId,
+          text: text
+        });
+        activeEditingId = null;
+        input.placeholder = 'Send message...';
+      } else {
+        if (pendingAttachmentPath) {
+          setUploadProgress(true, 'Uploading...');
+        }
+
+        vscode.postMessage({
+          command: isMemberMode ? 'SEND_DM' : 'SEND_MESSAGE',
+          text: text,
+          targetId: currentTargetId,
+          replyTo: activeReplyId ? String(activeReplyId) : null,
+          attachmentPath: pendingAttachmentPath
+        });
+        cancelReply();
+      }
+      input.value = '';
+    }
+
+    function sendQuickCode() {
+      vscode.postMessage({
+        command: 'SEND_QUICK_CODE',
+        targetId: currentTargetId,
+        isDM: isMemberMode
+      });
+    }
+
+    function uploadFile() {
+      vscode.postMessage({ command: 'OPEN_FILE_DIALOG' });
+    }
+
+    function setUploadProgress(inProgress, label) {
+      isSending = inProgress;
+      const spinner = document.getElementById('attach-spinner');
+      const icon = document.getElementById('attach-icon');
+      const sendBtn = document.getElementById('send-btn');
+      const textEl = document.getElementById('attach-text');
+
+      if (inProgress) {
+        spinner.style.display = 'inline-block';
+        icon.style.display = 'none';
+        if (label) textEl.innerText = label;
+        sendBtn.innerText = '⏳';
+      } else {
+        spinner.style.display = 'none';
+        icon.style.display = 'inline-block';
+        sendBtn.innerText = '➤';
+      }
+    }
+
+    function cancelAttachment() {
+      pendingAttachmentPath = null;
+      document.getElementById('attachment-banner').classList.remove('active');
+      setUploadProgress(false);
+    }
+
+    function startReply(msgId, authorName) {
+      activeReplyId = String(msgId);
+      document.getElementById('replying-text').innerText = 'Replying to @' + authorName;
+      document.getElementById('reply-banner').classList.add('active');
+      document.getElementById('msg-input').focus();
+    }
+
+    function cancelReply() {
+      activeReplyId = null;
+      document.getElementById('reply-banner').classList.remove('active');
+    }
+
+    function startEdit(msgId) {
+      activeEditingId = String(msgId);
+      const input = document.getElementById('msg-input');
+      const stored = messageStore[msgId];
+      input.value = stored ? stored.content : '';
+      input.placeholder = 'Editing message (Press Enter to save)...';
+      input.focus();
+    }
+
+    function deleteMsg(msgId) {
+      const stored = messageStore[msgId];
+      vscode.postMessage({
+        command: 'DELETE_MESSAGE',
+        messageId: String(msgId),
+        channelId: stored ? stored.channelId : currentTargetId
+      });
+    }
+
+    function addReaction(msgId, emoji) {
+      const stored = messageStore[msgId];
+      vscode.postMessage({
+        command: 'ADD_REACTION',
+        messageId: String(msgId),
+        channelId: stored ? stored.channelId : currentTargetId,
+        emoji: emoji
+      });
+      document.querySelectorAll('.emoji-popover').forEach(el => el.classList.remove('active'));
+    }
+
+    function toggleEmojiPicker(msgId) {
+      document.querySelectorAll('.emoji-popover').forEach(el => {
+        if (el.id !== 'picker-' + msgId) el.classList.remove('active');
+      });
+      const picker = document.getElementById('picker-' + msgId);
+      if (picker) picker.classList.toggle('active');
+    }
+
+    function downloadFile(url, filename) {
+      vscode.postMessage({ command: 'DOWNLOAD_ATTACHMENT', url, filename });
+      document.querySelectorAll('.more-menu-dropdown').forEach(m => m.classList.remove('active'));
+    }
+
+    function openImg(url) {
+      document.getElementById('lightbox-img').src = url;
+      document.getElementById('lightbox').classList.add('active');
+    }
+
+    function toggleCardCollapse(cardId) {
+      const preview = document.getElementById('preview-' + cardId);
+      const btn = document.getElementById('btn-collapse-' + cardId);
+      if (preview) {
+        const isExpanded = preview.classList.toggle('expanded');
+        btn.innerText = isExpanded ? '⌃' : '⌄';
+      }
+    }
+
+    function toggleMoreMenu(menuId) {
+      document.querySelectorAll('.more-menu-dropdown').forEach(m => {
+        if (m.id !== menuId) m.classList.remove('active');
+      });
+      const menu = document.getElementById(menuId);
+      if (menu) menu.classList.toggle('active');
+    }
+
+    function copyCode(url, btnEl) {
+      vscode.postMessage({ command: 'COPY_TEXT_FROM_URL', url });
+      const orig = btnEl.innerText;
+      btnEl.innerText = '✓';
+      setTimeout(() => { btnEl.innerText = orig; }, 1200);
+    }
+
+    function insertCode(url) {
+      vscode.postMessage({ command: 'INSERT_CODE_FROM_URL', url });
+    }
+
+    function openInEditorTab(url, filename) {
+      vscode.postMessage({ command: 'PREVIEW_FILE_IN_EDITOR', url, filename });
+      document.querySelectorAll('.more-menu-dropdown').forEach(m => m.classList.remove('active'));
+    }
+
+    function renderAttachments(attachments) {
+      if (!attachments || attachments.length === 0) return '';
+      return attachments.map((att) => {
+        const isImg = /\.(png|jpe?g|gif|webp)$/i.test(att.name);
+        const isVid = /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(att.name);
+        const isAud = /\.(mp3|wav|ogg|webm|m4a|aac|flac)$/i.test(att.name);
+        const isCodeOrText = /\.(log|txt|py|js|ts|jsx|tsx|json|html|css|cpp|c|h|java|cs|rs|go|php|sh|bat|yml|yaml|md)$/i.test(att.name);
+
+        if (isImg) {
+          return `<div class="media-box"><img src="${att.url}" onclick="openImg('${att.url}')" /><div class="media-bar"><span>${att.name}</span><button class="dl-btn" onclick="downloadFile('${att.url}', '${att.name}')">Save</button></div></div>`;
+        }
+
+        if (isVid) {
+          return `
+            <div class="media-box">
+              <video src="${att.url}" controls playsinline preload="auto"></video>
+              <div class="media-bar">
+                <span>🎥 ${att.name}</span>
+                <button class="dl-btn" onclick="downloadFile('${att.url}', '${att.name}')">Save</button>
+              </div>
+            </div>
+          `;
+        }
+
+        if (isAud) {
+          return `
+            <div class="media-box" style="padding:4px;">
+              <audio src="${att.url}" controls preload="auto" style="width:100%;"></audio>
+              <div class="media-bar">
+                <span>🎵 ${att.name}</span>
+                <button class="dl-btn" onclick="downloadFile('${att.url}', '${att.name}')">Save</button>
+              </div>
+            </div>
+          `;
+        }
+
+        if (isCodeOrText) {
+          const cardId = 'card-' + Math.random().toString(36).substr(2, 9);
+          const menuId = 'menu-' + cardId;
+          const previewElId = 'preview-' + cardId;
+
+          setTimeout(() => {
+            vscode.postMessage({ command: 'FETCH_FILE_PREVIEW', url: att.url, elementId: previewElId });
+          }, 30);
+
+          return `
+            <div class="discord-file-card">
+              <div id="${previewElId}" class="file-preview-content">Loading preview...</div>
+              <div class="file-card-footer">
+                <div class="file-card-left">
+                  <button id="btn-collapse-${cardId}" class="expand-toggle-btn" title="Expand / Collapse" onclick="toggleCardCollapse('${cardId}')">⌄</button>
+                  <div class="file-meta-text">
+                    <span class="file-title-name">${att.name}</span>
+                    <span class="file-subtitle-size">${att.size ? Math.round(att.size / 1024) + ' KB' : 'Code File'}</span>
+                  </div>
+                </div>
+                <div class="file-card-actions">
+                  <button class="card-btn" title="Copy Code" onclick="copyCode('${att.url}', this)">📋</button>
+                  <button class="card-btn" title="Insert into Editor" onclick="insertCode('${att.url}')">⤵</button>
+                  <button class="card-btn" title="More Options" onclick="toggleMoreMenu('${menuId}')">•••</button>
+                  <div id="${menuId}" class="more-menu-dropdown">
+                    <button class="more-menu-item" onclick="openInEditorTab('${att.url}', '${att.name}')">👁 Preview in Editor</button>
+                    <button class="more-menu-item" onclick="downloadFile('${att.url}', '${att.name}')">💾 Download to Project</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        return `<div class="media-box" style="padding:6px 8px;display:flex;justify-content:space-between;"><span>📄 ${att.name}</span><button class="dl-btn" onclick="downloadFile('${att.url}', '${att.name}')">Download</button></div>`;
+      }).join('');
+    }
+
+    function renderReactions(msgId, reactions) {
+      if (!reactions || reactions.length === 0) return '';
+      return '<div class="reaction-list">' +
+        reactions.map(r => '<span class="reaction-badge" onclick="addReaction(\'' + msgId + '\', \'' + r.emoji + '\')">' + r.emoji + ' ' + r.count + '</span>').join('') +
+      '</div>';
+    }
+
+    function renderMessage(msg) {
+      messageStore[msg.id] = msg;
+
+      const row = document.createElement('div');
+      row.className = 'message-row';
+      row.id = 'msg-' + msg.id;
+
+      const avatarContent = msg.avatar 
+        ? '<div class="avatar"><img src="' + msg.avatar + '" /></div>'
+        : '<div class="avatar">' + msg.author.slice(0, 1).toUpperCase() + '</div>';
+
+      const replyContext = msg.replyTo
+        ? '<div class="reply-preview-pill">↩ Replying to @' + msg.replyTo.author + ': ' + msg.replyTo.content.slice(0, 25) + '</div>'
+        : '';
+
+      const actions = `
+        <div class="msg-actions">
+          <button class="action-btn" title="Add Reaction" onclick="toggleEmojiPicker('${msg.id}')">😀</button>
+          <button class="action-btn" title="Reply" onclick="startReply('${msg.id}', '${msg.author.replace(/'/g, "\\'")}')">↩</button>
+          ${msg.isMine ? `<button class="action-btn" title="Edit" onclick="startEdit('${msg.id}')">✏</button>` : ''}
+          <button class="action-btn" title="Delete" onclick="deleteMsg('${msg.id}')">🗑</button>
+        </div>
+        <div id="picker-${msg.id}" class="emoji-popover">
+          <button class="emoji-btn" onclick="addReaction('${msg.id}', '👍')">👍</button>
+          <button class="emoji-btn" onclick="addReaction('${msg.id}', '❤️')">❤️</button>
+          <button class="emoji-btn" onclick="addReaction('${msg.id}', '😂')">😂</button>
+          <button class="emoji-btn" onclick="addReaction('${msg.id}', '🔥')">🔥</button>
+          <button class="emoji-btn" onclick="addReaction('${msg.id}', '🎉')">🎉</button>
+          <button class="emoji-btn" onclick="addReaction('${msg.id}', '🚀')">🚀</button>
+        </div>
+      `;
+
+      row.innerHTML = avatarContent +
+        '<div class="message-body">' +
+          replyContext +
+          '<div class="meta">' +
+            '<span class="author">' + msg.author + '</span>' +
+            (msg.isBot ? '<span class="bot-pill">BOT</span>' : '') +
+            '<span class="time">' + msg.time + '</span>' +
+          '</div>' +
+          '<div class="content">' + msg.content.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+          renderAttachments(msg.attachments) +
+          renderReactions(msg.id, msg.reactions) +
+        '</div>' + actions;
+
+      return row;
+    }
+
+    window.addEventListener('message', function(event) {
+      const data = event.data;
+      if (data.type === 'CONNECTED') {
+        document.getElementById('view-auth').classList.remove('active-view');
+        document.getElementById('view-chat').classList.add('active-view');
+        document.getElementById('bot-name-label').innerText = data.botName;
+        updateDropdowns(data.servers, data.activeServerId, data.activeChannelId);
+      } else if (data.type === 'LOGIN_ERROR') {
+        document.getElementById('error-msg').innerText = data.error;
+      } else if (data.type === 'SERVERS_UPDATED') {
+        updateDropdowns(data.servers, currentServerId, currentTargetId);
+      } else if (data.type === 'HISTORY') {
+        const stream = document.getElementById('message-stream');
+        stream.innerHTML = '';
+        data.messages.forEach(m => stream.appendChild(renderMessage(m)));
+        stream.scrollTop = stream.scrollHeight;
+      } else if (data.type === 'NEW_MESSAGE') {
+        const stream = document.getElementById('message-stream');
+        stream.appendChild(renderMessage(data.payload));
+        stream.scrollTop = stream.scrollHeight;
+      } else if (data.type === 'FILE_SELECTED') {
+        pendingAttachmentPath = data.filePath;
+        document.getElementById('attach-text').innerText = data.fileName;
+        document.getElementById('attachment-banner').classList.add('active');
+        setUploadProgress(false);
+        document.getElementById('msg-input').focus();
+      } else if (data.type === 'FILE_PREVIEW_RESULT') {
+        const el = document.getElementById(data.elementId);
+        if (el) el.innerText = data.text;
+      } else if (data.type === 'UPLOAD_FINISHED') {
+        cancelAttachment();
+      } else if (data.type === 'MESSAGE_EDITED') {
+        if (messageStore[data.messageId]) messageStore[data.messageId].content = data.newText;
+        const row = document.getElementById('msg-' + data.messageId);
+        if (row) {
+          const contentEl = row.querySelector('.content');
+          if (contentEl) contentEl.innerText = data.newText;
+        }
+      } else if (data.type === 'MESSAGE_DELETED') {
+        delete messageStore[data.messageId];
+        const row = document.getElementById('msg-' + data.messageId);
+        if (row) row.remove();
+      } else if (data.type === 'RESET_VIEW') {
+        document.getElementById('view-chat').classList.remove('active-view');
+        document.getElementById('view-auth').classList.add('active-view');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.file-card-actions')) {
+        document.querySelectorAll('.more-menu-dropdown').forEach(m => m.classList.remove('active'));
+      }
+      if (!e.target.closest('.msg-actions') && !e.target.closest('.emoji-popover')) {
+        document.querySelectorAll('.emoji-popover').forEach(p => p.classList.remove('active'));
+      }
+    });
+  </script>
+</body>
+</html>
